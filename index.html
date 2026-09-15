@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Family Shop</title>
+    <!-- Подключение Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Иконки Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Telegram WebApp JS SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding-bottom: 90px;
+        }
+        .hero-banner {
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 35px 0;
+            border-radius: 0 0 20px 20px;
+        }
+        .card-img-top {
+            height: 200px;
+            object-fit: cover;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important;
+        }
+        .nav-pills .nav-link {
+            border-radius: 12px;
+            font-weight: 600;
+            color: #495057;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+        }
+        .cart-sticky-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border-top: 1px solid #dee2e6;
+            padding: 12px 20px;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.08);
+            z-index: 1030;
+        }
+        .modal-content {
+            border-radius: 20px;
+            border: none;
+        }
+        .qty-btn {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+        .support-banner {
+            background-color: #e7f1ff;
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px dashed #0d6efd;
+        }
+        .search-container {
+            position: relative;
+        }
+        .search-container .fa-magnifying-glass {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+        .search-input {
+            padding-left: 42px;
+            border-radius: 25px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Шапка сайта -->
+    <header class="bg-white shadow-sm sticky-top">
+        <div class="container d-flex justify-content-between align-items-center py-2">
+            <h1 class="h5 m-0 text-primary fw-bold">🛍️ Online Family Shop</h1>
+            <div class="d-flex gap-2">
+                
+                <!-- Кнопка админки (скрыта по умолчанию) -->
+                <button id="adminBtn" class="btn btn-warning btn-sm rounded-pill px-3 d-none" onclick="openAdminModal()">
+                    <i class="fa-solid fa-user-gear me-1"></i> Админка
+                </button>
+
+                <!-- Выпадающее меню техподдержки -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 d-flex align-items-center dropdown-toggle" type="button" id="supportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa-solid fa-headset me-1"></i> Поддержка
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end p-2" aria-labelledby="supportDropdown">
+                        <li><span class="dropdown-header text-muted small">Выберите контакт:</span></li>
+                        <li>
+                            <a class="dropdown-item rounded-2 d-flex align-items-center py-2" href="https://t.me/Kse_ni_ya_08" target="_blank">
+                                <i class="fa-brands fa-telegram text-primary me-2 fs-5"></i>
+                                <div>
+                                    <strong class="d-block small">Владелец</strong>
+                                    <span class="text-muted extra-small" style="font-size: 0.75rem;">@Kse_ni_ya_08</span>
+                                </div>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <a class="dropdown-item rounded-2 d-flex align-items-center py-2" href="https://t.me/pawtontex" target="_blank">
+                                <i class="fa-brands fa-telegram text-primary me-2 fs-5"></i>
+                                <div>
+                                    <strong class="d-block small">Менеджер</strong>
+                                    <span class="text-muted extra-small" style="font-size: 0.75rem;">@pawtontex</span>
+                                </div>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <button class="btn btn-primary btn-sm position-relative rounded-pill px-3" onclick="openCartModal()">
+                    <i class="fa-solid fa-cart-shopping me-1"></i> Корзина
+                    <span id="cartBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+                        0
+                    </span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Главный баннер -->
+    <section class="hero-banner text-center mb-3">
+        <div class="container">
+            <h2 class="fw-bold fs-3">Одежда для всей семьи</h2>
+            <p class="mb-0 text-white-50">Цены указаны в формате: Цена товара + карго</p>
+        </div>
+    </section>
+
+    <!-- Основной контент -->
+    <main class="container">
+
+        <!-- Строка поиска -->
+        <div class="search-container mb-3">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" class="form-control search-input" placeholder="Поиск товаров..." oninput="handleSearch()">
+        </div>
+        
+        <!-- Блок техподдержки -->
+        <div class="support-banner mb-4">
+            <div class="d-flex align-items-center mb-2">
+                <i class="fa-solid fa-headset fs-4 text-primary me-2"></i>
+                <strong class="text-dark small">Нужна помощь с размером или заказом?</strong>
+            </div>
+            <p class="text-muted extra-small mb-2" style="font-size: 0.85rem;">Свяжитесь с нами в Telegram:</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="https://t.me/Kse_ni_ya_08" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                    <i class="fa-brands fa-telegram me-1"></i> Владелец
+                </a>
+                <a href="https://t.me/pawtontex" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                    <i class="fa-brands fa-telegram me-1"></i> Менеджер
+                </a>
+            </div>
+        </div>
+
+        <!-- Навигация по разделам -->
+        <ul class="nav nav-pills nav-justified mb-4 gap-2" id="shopTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="women-tab" data-bs-toggle="tab" data-bs-target="#women" type="button" role="tab">
+                    👩 Женское
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="men-tab" data-bs-toggle="tab" data-bs-target="#men" type="button" role="tab">
+                    👨 Мужское
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="kids-tab" data-bs-toggle="tab" data-bs-target="#kids" type="button" role="tab">
+                    👶 Детское
+                </button>
+            </li>
+        </ul>
+
+        <!-- Содержимое каталогов -->
+        <div class="tab-content" id="shopTabsContent">
+            <div class="tab-pane fade show active" id="women" role="tabpanel">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3" id="women-products"></div>
+            </div>
+            <div class="tab-pane fade" id="men" role="tabpanel">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3" id="men-products"></div>
+            </div>
+            <div class="tab-pane fade" id="kids" role="tabpanel">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3" id="kids-products"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Фиксированная нижняя панель корзины -->
+    <div class="cart-sticky-bar d-flex justify-content-between align-items-center">
+        <div>
+            <span class="text-muted small">Итого:</span>
+            <div id="stickyTotal" class="fw-bold text-primary fs-6">0 сум + карго</div>
+        </div>
+        <button class="btn btn-success rounded-pill px-4" onclick="openCartModal()">
+            <i class="fa-solid fa-bag-shopping me-2"></i>Перейти в корзину
+        </button>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО: Корзина -->
+    <div class="modal fade" id="cartModal" tabindex="-1" aria-labelledby="cartModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="cartModalLabel">🛒 Корзина товаров</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    
+                    <div id="cartItemsList" class="mb-4">
+                        <p class="text-muted text-center py-3">Ваша корзина пуста</p>
+                    </div>
+
+                    <div class="alert alert-info border-0 rounded-3 text-center py-2 my-3" style="font-size: 0.85rem;">
+                        <i class="fa-solid fa-truck-fast me-1 text-primary"></i> Доставка заказа осуществляется в течение 21 дня.
+                    </div>
+
+                    <hr class="my-3">
+
+                    <form id="orderForm">
+                        <h6 class="fw-bold mb-3">📍 Данные для доставки</h6>
+                        <div class="mb-3">
+                            <label for="userName" class="form-label small text-muted">Ваше имя *</label>
+                            <input type="text" class="form-control rounded-3" id="userName" placeholder="Введите имя и фамилию" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userPhone" class="form-label small text-muted">Номер телефона *</label>
+                            <input type="tel" class="form-control rounded-3" id="userPhone" placeholder="+998 90 123 45 67" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userAddress" class="form-label small text-muted">Адрес доставки *</label>
+                            <textarea class="form-control rounded-3" id="userAddress" rows="2" placeholder="Город, улица, дом" required></textarea>
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-3 pt-2 border-top">
+                        <span class="text-muted small d-block mb-1">Вопросы по заказу? Напишите нам:</span>
+                        <div class="d-flex justify-content-center gap-2">
+                            <a href="https://t.me/Kse_ni_ya_08" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill">
+                                <i class="fa-brands fa-telegram text-primary"></i> Владелец
+                            </a>
+                            <a href="https://t.me/pawtontex" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill">
+                                <i class="fa-brands fa-telegram text-primary"></i> Менеджер
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div>
+                        <span class="text-muted small">К оплате:</span>
+                        <div id="modalTotal" class="fw-bold text-success fs-6">0 сум + карго</div>
+                    </div>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" onclick="submitOrder()">
+                        <i class="fa-paper-plane me-1"></i> Оформить заказ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО: Админка -->
+    <div class="modal fade" id="adminModal" tabindex="-1" aria-labelledby="adminModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold" id="adminModalLabel">⚙️ Панель администратора</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="fw-bold mb-3">➕ Добавить новый товар</h6>
+                    <form id="addProductForm">
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-1">Категория</label>
+                            <select id="prodCategory" class="form-select rounded-3">
+                                <option value="women">👩 Женское</option>
+                                <option value="men">👨 Мужское</option>
+                                <option value="kids">👶 Детское</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-1">Название товара</label>
+                            <input type="text" id="prodName" class="form-control rounded-3" placeholder="например, Джинсовая куртка" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-1">Цена (в сумах)</label>
+                            <input type="number" id="prodPrice" class="form-control rounded-3" placeholder="350000" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-1">Ссылка на фото (URL)</label>
+                            <input type="url" id="prodImg" class="form-control rounded-3" placeholder="https://..." required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted mb-1">Описание / Размеры</label>
+                            <input type="text" id="prodDesc" class="form-control rounded-3" placeholder="Размеры: S, M, L" required>
+                        </div>
+                        <button type="button" class="btn btn-success w-100 rounded-pill" onclick="addNewProduct()">
+                            <i class="fa-solid fa-plus me-1"></i> Сохранить товар
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Скрипты Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Укажите ID двух администраторов
+        const ADMIN_IDS = [1657660247, 8094090200]; 
+
+        const tg = window.Telegram?.WebApp;
+        let currentUserId = null;
+        let isAdmin = false;
+
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            currentUserId = tg.initDataUnsafe?.user?.id;
+        }
+
+        if (currentUserId && ADMIN_IDS.includes(currentUserId)) {
+            isAdmin = true;
+            document.getElementById('adminBtn').classList.remove('d-none');
+        }
+
+        let products = JSON.parse(localStorage.getItem('shop_products')) || {
+            women: [
+                { id: 'w1', name: 'Летнее платье Floral', price: 350000, img: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500&auto=format&fit=crop', desc: 'Размеры: S, M, L' },
+                { id: 'w2', name: 'Элегантная блузка', price: 240000, img: 'https://images.unsplash.com/photo-1598554747436-c9293d6a588f?w=500&auto=format&fit=crop', desc: 'Размеры: XS, S, M' }
+            ],
+            men: [
+                { id: 'm1', name: 'Мужская рубашка Slim Fit', price: 280000, img: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop', desc: 'Размеры: M, L, XL' }
+            ],
+            kids: [
+                { id: 'k1', name: 'Комплект боди для малышей', price: 160000, img: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=500&auto=format&fit=crop', desc: 'Набор из 3 шт' }
+            ]
+        };
+
+        function saveProductsToStorage() {
+            localStorage.setItem('shop_products', JSON.stringify(products));
+        }
+
+        let cart = {};
+
+        function formatSum(amount) {
+            return amount.toLocaleString('ru-RU') + ' сум + карго';
+        }
+
+        function renderCategory(catName, containerId, query = '') {
+            const container = document.getElementById(containerId);
+            const filtered = products[catName].filter(p => 
+                p.name.toLowerCase().includes(query.toLowerCase()) || 
+                p.desc.toLowerCase().includes(query.toLowerCase())
+            );
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="col-12 text-center text-muted py-4">Товары не найдены</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(p => `
+                <div class="col">
+                    <div class="card h-100 shadow-sm position-relative">
+                        ${isAdmin ? `<button class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 rounded-circle" onclick="deleteProduct('${catName}', '${p.id}')" title="Удалить товар"><i class="fa-solid fa-xmark"></i></button>` : ''}
+                        <img src="${p.img}" class="card-img-top" alt="${p.name}">
+                        <div class="card-body d-flex flex-column justify-content-between">
+                            <div>
+                                <h6 class="card-title fw-bold mb-1">${p.name}</h6>
+                                <p class="card-text text-muted small mb-2">${p.desc}</p>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-success fs-6 mb-2">${formatSum(p.price)}</div>
+                                <button class="btn btn-outline-primary btn-sm w-100 rounded-pill" onclick="addToCart('${p.id}', '${catName}')">
+                                    <i class="fa-solid fa-cart-plus me-1"></i> В корзину
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
