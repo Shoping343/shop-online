@@ -294,9 +294,9 @@ const ADMIN_USERNAMES=["kse_ni_ya_08","pawtontex"];
 const API_URL="/api";
 async function apiFetch(path,opts={}){const headers=new Headers(opts.headers||{});if(tg?.initData)headers.set("X-Telegram-Init-Data",tg.initData);const res=await fetch(API_URL+path,{credentials:"same-origin",...opts,headers});let data={};try{data=await res.json()}catch(_){}if(!res.ok)throw new Error(data.error||"Ошибка сервера");return data}
 const defaultProducts=[
- {id:"default-1",category:"women",name:"Базовая женская одежда",price:250000,img:"https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=800&auto=format&fit=crop",desc:"Уточняйте доступные размеры у менеджера."},
- {id:"default-2",category:"men",name:"Мужская повседневная одежда",price:300000,img:"https://images.unsplash.com/photo-1516826957135-700dedea698c?q=80&w=800&auto=format&fit=crop",desc:"Уточняйте доступные размеры у менеджера."},
- {id:"default-3",category:"kids",name:"Детская одежда",price:180000,img:"https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?q=80&w=800&auto=format&fit=crop",desc:"Уточняйте доступные размеры у менеджера."}
+ {id:"default-1",category:"women"name:
+ {id:"default-2",category:"men"name:
+ {id:"default-3",category:"kid"name:
 ];
 let products=[];let localFallback=loadJSON("familyShopProducts",[]);let cart=loadJSON("familyShopCart",{});let isAdmin=false;let apiAvailable=false;let adminModalInstance,cartModalInstance,loginModalInstance;
 function loadJSON(k,f){try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch(_){return f}}
