@@ -1,0 +1,12 @@
+{
+  "name": "family-shop-render",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {"start": "node server.js"},
+  "dependencies": {
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "pg": "^8.16.3"
+  }
+}
