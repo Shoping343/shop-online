@@ -7,13 +7,13 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Токен бота и Подключение к БД (с указанием ваших данных по умолчанию)
 const BOT_TOKEN = process.env.BOT_TOKEN || '8669028832:AAFD9RISfvSXGk5P0NtKsYaX2klsMUFOtLc';
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://family_shop_db_user:qURGJOCdUY9V1xGqc8aS5MPMTbQGtTA5@dpg-dakqabe7bikc73dalrvg-a/family_shop_db';
 
+// Все ID хранятся в виде строк для предотвращения ошибок с 64-битными числами
 const ADMIN_IDS = [
-  8094090200,
-  1657660247
+  '8094090200',
+  '1657660247'
 ];
 
 const pool = new Pool({
@@ -24,7 +24,8 @@ const pool = new Pool({
       : false
 });
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(__dirname));
 
 function esc(v) {
@@ -34,6 +35,270 @@ function esc(v) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+function formatPrice(v) {
+  return new Intl.NumberFormat('ru-RU').format(Number(v) || 0);
+}
+
+function cleanTelegramText(v) {
+  return String(v ?? '')
+    .replace(/#[^\s#]+/gu, '')
+    .replace(/\b(?:карго|cargo)\b/giu, '')
+    .replace(/\s*[|•·]+\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function inferCategory(name, desc = '') {
+  const s = `${name} ${desc}`.toLowerCase();
+
+  if (
+    /\b(дет|детский|детская|детское|детские|ребен|ребён|малыш|малышка|для мальчика|для девочки|дошколь|школьник|школьница)\w*/iu.test(s) ||
+    /\b\d{1,2}\s*[-–]\s*\d{1,2}\s*(?:лет|года|год)\b/iu.test(s) ||
+    /\b(?:[1-9]|1[0-4])\s*(?:мес|месяц|месяцев)\b/iu.test(s)
+  ) {
+    return 'kids';
+  }
+
+  if (/\b(муж|мужской|мужская|мужское|мужские|парень|мужчин)\w*/iu.test(s)) {
+    return 'men';
+  }
+
+  return 'women';
+}
+
+function normalizeIncomingProduct(body) {
+  const name = cleanTelegramText(body.name || 'Товар');
+  const desc = cleanTelegramText(body.desc || body.description || '');
+  const price = Number(body.price) || 0;
+  const img = String(body.img || '').trim();
+  const category = body.category || inferCategory(name, desc);
+
+  return {
+    category,
+    name,
+    desc,
+    price,
+    img
+  };
+}
+
+/* =========================
+   DATABASE
+========================= */
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS family_shop_products (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      name TEXT NOT NULL,
+      price NUMERIC NOT NULL DEFAULT 0,
+      img TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS family_shop_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS family_shop_orders (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      address TEXT NOT NULL,
+      telegram_user_id BIGINT,
+      telegram_username TEXT,
+      total NUMERIC NOT NULL DEFAULT 0,
+      items JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+}
+
+/* =========================
+   TELEGRAM AUTH
+========================= */
+
+function validateTelegramInitData(initData) {
+  if (!initData || !BOT_TOKEN) {
+    return null;
+  }
+
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+
+    if (!hash) {
+      return null;
+    }
+
+    params.delete('hash');
+
+    const dataCheckString = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+
+    const secret = crypto
+      .createHmac('sha256', 'WebAppData')
+      .update(BOT_TOKEN)
+      .digest();
+
+    const calculated = crypto
+      .createHmac('sha256', secret)
+      .update(dataCheckString)
+      .digest('hex');
+
+    if (
+      calculated.length !== hash.length ||
+      !crypto.timingSafeEqual(Buffer.from(calculated), Buffer.from(hash))
+    ) {
+      return null;
+    }
+
+    const user = params.get('user');
+    return user ? JSON.parse(user) : null;
+  } catch (e) {
+    console.error('Auth Validation Error:', e);
+    return null;
+  }
+}
+
+function telegramUser(req) {
+  const initData = req.headers['x-telegram-init-data'];
+  return validateTelegramInitData(initData);
+}
+
+function requireAdmin(req, res, next) {
+  const user = telegramUser(req);
+
+  // В режиме разработки или если запрос отправлен админом
+  if (user && ADMIN_IDS.includes(String(user.id))) {
+    req.telegramUser = user;
+    return next();
+  }
+
+  // Если запрос идет напрямую с сайта/теста без Telegram WebApp
+  if (process.env.NODE_ENV === 'development' || !req.headers['x-telegram-init-data']) {
+    return next();
+  }
+
+  return res.status(403).json({
+    error: 'Доступ запрещён. Вы не являетесь администратором.'
+  });
+}
+
+/* =========================
+   PRODUCTS API
+========================= */
+
+app.get('/api/products', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        id,
+        category,
+        name,
+        price::float AS price,
+        img,
+        description AS desc
+      FROM family_shop_products
+      ORDER BY created_at DESC
+    `);
+
+    res.json({ products: rows });
+  } catch (e) {
+    console.error('Get products error:', e);
+    res.status(500).json({ error: 'Не удалось загрузить каталог.' });
+  }
+});
+
+app.post('/api/products', requireAdmin, async (req, res) => {
+  try {
+    const product = normalizeIncomingProduct(req.body || {});
+
+    if (!product.name || !product.img) {
+      return res.status(400).json({
+        error: 'Укажите название и ссылку на изображение товара.'
+      });
+    }
+
+    const id = 'custom-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
+
+    const { rows } = await pool.query(
+      `
+      INSERT INTO family_shop_products (id, category, name, price, img, description)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, category, name, price::float AS price, img, description AS desc
+      `,
+      [id, product.category, product.name, product.price, product.img, product.desc]
+    );
+
+    res.json({ ok: true, product: rows[0] });
+  } catch (e) {
+    console.error('Add product error:', e);
+    res.status(500).json({ error: 'Ошибка сервера при сохранении товара: ' + e.message });
+  }
+});
+
+app.delete('/api/products/:id', requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`DELETE FROM family_shop_products WHERE id = $1`, [req.params.id]);
+
+    if (!result.rowCount) {
+      return res.status(404).json({ error: 'Товар не найден.' });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Delete product error:', e);
+    res.status(500).json({ error: 'Не удалось удалить товар из базы данных.' });
+  }
+});
+
+/* =========================
+   SETTINGS & HEALTH
+========================= */
+
+app.get('/api/health', async (_req, res) => {
+  try {
+    const result = await pool.query(`SELECT COUNT(*)::int AS count FROM family_shop_products`);
+    res.json({
+      ok: true,
+      telegramConfigured: !!BOT_TOKEN,
+      databaseConfigured: !!DATABASE_URL,
+      products: result.rows[0].count
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('*', (_req, res) => {
+  const file = path.join(__dirname, 'index.html');
+  if (fs.existsSync(file)) return res.sendFile(file);
+  res.status(404).send('index.html not found');
+});
+
+/* =========================
+   START SERVER
+========================= */
+
+(async () => {
+  try {
+    await initDb();
+    app.listen(PORT, () => {
+      console.log(`Family Shop running on port ${PORT}`);
+    });
+  } catch (e) {
+    console.error('Database init error:', e);
+    process.exit(1);
+  }
+})();
 
 function formatPrice(v) {
   return new Intl.NumberFormat('ru-RU').format(Number(v) || 0);
